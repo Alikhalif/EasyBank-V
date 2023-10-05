@@ -18,7 +18,7 @@ public class AccountController {
 
     AccountDAOImpl seracc = new AccountDAOImpl();
 
-    EmployeeController employeeController = new EmployeeController();
+    //EmployeeService employeeController = new EmployeeService();
     ClientController clientController = new ClientController();
 
     public void addAccount(){
@@ -29,7 +29,7 @@ public class AccountController {
 
 
 
-        employeeController.AllEmployee();
+        EmployeeService.getAllEmployees();
         System.out.println("Enter Matricule Employee");
         int matriculeEmp = sc.nextInt();
 

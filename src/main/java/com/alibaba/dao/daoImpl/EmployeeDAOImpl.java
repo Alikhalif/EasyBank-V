@@ -2,133 +2,256 @@ package com.alibaba.dao.daoImpl;
 import com.alibaba.connexion.DB;
 import com.alibaba.dao.EmployeeDAO;
 import com.alibaba.entities.Employee;
+import com.alibaba.exception.EmployeeException;
 
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class EmployeeDAOImpl implements EmployeeDAO {
-    private Connection connection = DB.getConnection();
-    Employee emp = new Employee();
+    private Connection connection;
 
-    @Override
-    public void addEmployee(Employee employee) {
-        try {
-            String SQL = "INSERT INTO employees (firstName, lastName, birthDate, email, phone, address, recruitmentDate) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    public EmployeeDAOImpl() {
+        connection = DB.getConnection();
+    }
 
-            PreparedStatement pstmt = connection.prepareStatement(SQL);
-            pstmt.setString(1, employee.getFirstName());
-            pstmt.setString(2, employee.getLastName());
-            pstmt.setDate(3, java.sql.Date.valueOf(employee.getDateOfBirth()));
-            pstmt.setString(4, employee.getEmail());
-            pstmt.setString(5, employee.getPhoneNumber());
-            pstmt.setString(6, employee.getAddress());
-            pstmt.setDate(7, java.sql.Date.valueOf(employee.getDateOfRecruitment()));
-
-            pstmt.executeUpdate();
-
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+    public EmployeeDAOImpl(Connection connection) {
+        connection = connection;
     }
 
     @Override
-    public Employee getEmployeeByMatricule(int matricule) {
-        try{
-            String sql = "SELECT * FROM employees WHERE matricule = ?";
-            PreparedStatement preparedStatement = connection.prepareStatement(sql);
-            preparedStatement.setInt(1,matricule);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                int matricul = resultSet.getInt("matricule");
-                String firstName = resultSet.getString("firstName");
-                String lastName = resultSet.getString("lastName");
-                LocalDate birthDate = resultSet.getDate("birthDate").toLocalDate();
-                String email = resultSet.getString("email");
-                String phoneNumber = resultSet.getString("phone");
-                String address = resultSet.getString("address");
-                LocalDate recruitmentDate = resultSet.getDate("recruitmentDate").toLocalDate();
-
-                // Create and return an Employee object
-                return new Employee(firstName, lastName, birthDate, email, phoneNumber, address, matricul, recruitmentDate, null, null, null);
-            }
-        }catch (SQLException e){
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    @Override
-    public List<Employee> getAllEmployees() {
-        List<Employee> employees = new ArrayList<>();
-        try{
-            String sql = "SELECT * FROM employees";
-            Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery(sql);
-//            firstName, lastName, birthDate, email, phone, address, recruitmentDate
-            while (resultSet.next()){
-                Employee emp = new Employee();
-                emp.setMatricule(resultSet.getInt("matricule"));
-                emp.setFirstName(resultSet.getString("firstName"));
-                emp.setLastName(resultSet.getString("lastName"));
-                emp.setDateOfBirth(resultSet.getDate("birthDate").toLocalDate());
-                emp.setEmail(resultSet.getString("email"));
-                emp.setPhoneNumber(resultSet.getString("phone"));
-                emp.setAddress(resultSet.getString("address"));
-                emp.setDateOfRecruitment(resultSet.getDate("recruitmentDate").toLocalDate());
-                employees.add(emp);
-            }
-            return employees;
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-        return null;
-        // Implement the logic to retrieve all employees from the database
-    }
-
-    @Override
-    public void updateEmployee(Employee employee) {
-        try {
-            String sql = "UPDATE employees SET firstName=?, lastName=?, birthDate=?, email=?, phone=?, address=?, recruitmentDate=? WHERE matricule = ?";
-            PreparedStatement preparedStatement = connection.prepareStatement(sql);
-
+    public Optional<Employee> create(Employee employee) {
+        String insertSQL = "INSERT INTO employees (firstName, lastName, birthDate, phone, address, recruitmentDate, email, agency_code) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING matricule";
+            try (PreparedStatement preparedStatement = connection.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS)) {
             preparedStatement.setString(1, employee.getFirstName());
             preparedStatement.setString(2, employee.getLastName());
             preparedStatement.setDate(3, java.sql.Date.valueOf(employee.getDateOfBirth()));
-            preparedStatement.setString(4, employee.getEmail());
-            preparedStatement.setString(5, employee.getPhoneNumber());
-            preparedStatement.setString(6, employee.getAddress());
-            preparedStatement.setDate(7, java.sql.Date.valueOf(employee.getDateOfRecruitment()));
-            preparedStatement.setInt(8, employee.getMatricule());  // Corrected position
+            preparedStatement.setString(4, employee.getPhoneNumber());
+            preparedStatement.setString(5, employee.getAddress());
+            preparedStatement.setDate(6, java.sql.Date.valueOf(employee.getRecruitmentDate()));
+            preparedStatement.setString(7, employee.getEmail());
+            preparedStatement.setInt(8, employee.getAgency().getCode());
 
-            preparedStatement.executeUpdate();
+            int affectedRows = preparedStatement.executeUpdate();
 
-        } catch (SQLException e) {
+            if (affectedRows == 0) {
+                throw new EmployeeException("Creating employee failed, no rows affected.");
+            }
+
+            try (ResultSet generatedKeys = preparedStatement.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    int matricule = generatedKeys.getInt(1);
+                    employee.setMatricule(matricule);
+                } else {
+                    throw new EmployeeException("Creating employee failed, no ID obtained.");
+                }
+            }
+
+            return Optional.of(employee);
+        } catch (SQLException | EmployeeException e) {
             e.printStackTrace();
+            return Optional.empty();
         }
     }
 
-
     @Override
-    public Boolean deleteEmployee(int matricule) {
-        try {
-            String sql = "DELETE FROM employees WHERE matricule = ?";
-            PreparedStatement preparedStatement = connection.prepareStatement(sql);
-            preparedStatement.setInt(1, matricule);
+    public Optional<Employee> update(Integer matricule, Employee employee) {
+        String updateSQL = "UPDATE employees " +
+                "SET firstName = ?, lastName = ?, birthDate = ?, phone = ?, address = ?, " +
+                "recruitmentDate = ?, email = ? " +
+                "WHERE matricule = ?";
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(updateSQL)) {
+            preparedStatement.setString(1, employee.getFirstName());
+            preparedStatement.setString(2, employee.getLastName());
+            preparedStatement.setDate(3, java.sql.Date.valueOf(employee.getDateOfBirth()));
+            preparedStatement.setString(4, employee.getPhoneNumber());
+            preparedStatement.setString(5, employee.getAddress());
+            preparedStatement.setDate(6, java.sql.Date.valueOf(employee.getRecruitmentDate()));
+            preparedStatement.setString(7, employee.getEmail());
+            preparedStatement.setInt(8, matricule);
+
             int affectedRows = preparedStatement.executeUpdate();
 
-            System.out.println("Number of affected rows: " + affectedRows);
-
-            if(affectedRows > 0){
-                return true;
-            }else {
-                return false;
+            if (affectedRows == 0) {
+                throw new EmployeeException("Updating employee failed, no rows affected.");
             }
+            return Optional.of(employee);
+        } catch (SQLException | EmployeeException e) {
+            e.printStackTrace();
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public boolean delete(Integer matricule) {
+        String deleteSQL = "DELETE FROM employees WHERE matricule = ?";
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(deleteSQL)) {
+            preparedStatement.setInt(1, matricule);
+
+            int affectedRows = preparedStatement.executeUpdate();
+            return affectedRows > 0;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
+
+    @Override
+    public Optional<Employee> findByID(Integer matricule) {
+        String selectSQL = "SELECT * FROM employees WHERE matricule = ?";
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(selectSQL)) {
+            preparedStatement.setInt(1, matricule);
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    Employee employee = new Employee();
+                    employee.setMatricule(resultSet.getInt("matricule"));
+                    employee.setFirstName(resultSet.getString("firstName"));
+                    employee.setLastName(resultSet.getString("lastName"));
+                    employee.setDateOfBirth(resultSet.getDate("birthDate").toLocalDate());
+                    employee.setPhoneNumber(resultSet.getString("phone"));
+                    employee.setAddress(resultSet.getString("address"));
+                    employee.setRecruitmentDate(resultSet.getDate("recruitmentDate").toLocalDate());
+                    employee.setEmail(resultSet.getString("email"));
+                    employee.setAgency(new AgencyDaoImpl().findByID(resultSet.getInt("agency_code")).get());
+
+                    return Optional.of(employee);
+                } else {
+                    return Optional.empty();
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public List<Employee> getAll() {
+        List<Employee> employees = new ArrayList<>();
+        String selectAllSQL = "SELECT * FROM employees";
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(selectAllSQL)) {
+
+            while (resultSet.next()) {
+                Employee employee = new Employee();
+                employee.setMatricule(resultSet.getInt("matricule"));
+                employee.setFirstName(resultSet.getString("firstName"));
+                employee.setLastName(resultSet.getString("lastName"));
+                employee.setDateOfBirth(resultSet.getDate("birthDate").toLocalDate());
+                employee.setPhoneNumber(resultSet.getString("phone"));
+                employee.setAddress(resultSet.getString("address"));
+                employee.setRecruitmentDate(resultSet.getDate("recruitmentDate").toLocalDate());
+                employee.setEmail(resultSet.getString("email"));
+
+                employees.add(employee);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return employees;
+    }
+
+    @Override
+    public boolean deleteAll() {
+        boolean deleted = false;
+        try {
+            PreparedStatement ps = connection.prepareStatement("DELETE FROM employees");
+            int rows = ps.executeUpdate();
+
+            if (rows > 0) {
+                deleted = true;
+            }
+        }catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return deleted;
+    }
+
+    @Override
+    public List<Employee> findByAttribute(String searchValue) throws EmployeeException {
+        List<Employee> employees = new ArrayList<>();
+
+        String selectByAttributeSQL = "SELECT * FROM employees WHERE " +
+                "matricule::TEXT LIKE ? OR " +
+                "firstName LIKE ? OR " +
+                "lastName LIKE ? OR " +
+                "birthDate::TEXT LIKE ? OR " +
+                "phone LIKE ? OR " +
+                "address LIKE ? OR " +
+                "recruitmentDate::TEXT LIKE ? OR " +
+                "email LIKE ?";
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(selectByAttributeSQL)) {
+            String wildcardSearchValue = "%" + searchValue + "%";
+            for (int i = 1; i <= 8; i++) {
+                preparedStatement.setString(i, wildcardSearchValue);
+            }
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    Employee employee = new Employee();
+                    employee.setMatricule(resultSet.getInt("matricule"));
+                    employee.setFirstName(resultSet.getString("firstName"));
+                    employee.setLastName(resultSet.getString("lastName"));
+                    employee.setDateOfBirth(resultSet.getDate("birthDate").toLocalDate());
+                    employee.setPhoneNumber(resultSet.getString("phone"));
+                    employee.setAddress(resultSet.getString("address"));
+                    employee.setRecruitmentDate(resultSet.getDate("recruitmentDate").toLocalDate());
+                    employee.setEmail(resultSet.getString("email"));
+
+                    employees.add(employee);
+                }
+            }
+        } catch (SQLException e) {
+            throw new EmployeeException("Error searching for employees by attribute.");
+        }
+
+        return employees;
+    }
+
+    @Override
+    public boolean validateMatricule(int matricule) throws EmployeeException{
+        try {
+            PreparedStatement ps = connection.prepareStatement("SELECT * FROM employees WHERE matricule = ?");
+            ps.setInt(1, matricule);
+            ResultSet rs = ps.executeQuery();
+
+            return rs.next();
+
+        }catch (SQLException e) {
+            throw new EmployeeException(e.getMessage());
+        }
+    }
+
+    @Override
+    public Optional<Employee> changeAgency(Employee employee, Integer agency_code) {
+        String updateSQL = "UPDATE employees SET agency_code = ? WHERE matricule = ?";
+        try (PreparedStatement ps = connection.prepareStatement(updateSQL)){
+            ps.setInt(1, agency_code);
+            ps.setInt(2, employee.getMatricule());
+
+            int affectedRows = ps.executeUpdate();
+
+            if (affectedRows == 0) {
+                throw new Exception("Updating employee failed, no rows affected.");
+            }
+
+            return Optional.of(employee);
+        }catch (Exception e) {
+            e.printStackTrace();
+            return Optional.empty();
+        }
+
+    }
+
 }

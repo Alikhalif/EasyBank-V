@@ -1,17 +1,27 @@
 package com.alibaba;
+import com.alibaba.dao.daoImpl.AgencyDaoImpl;
 import com.alibaba.services.*;
+import com.alibaba.views.*;
 
 import java.time.LocalDateTime;
 import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args){
-        EmployeeController empc = new EmployeeController();
+        EmployeeService empc = new EmployeeService();
         ClientController cltc = new ClientController();
         AccountController accc = new AccountController();
         OperationController opc = new OperationController();
         MissionController missc = new MissionController();
         MissionAssignmentsController assignmentsController = new MissionAssignmentsController();
+
+        AgencyDaoImpl agencyDao = new AgencyDaoImpl();
+        AgencyService agencyService = new AgencyService(agencyDao);
+
+        // Create an instance of AgencyView with the appropriate constructor
+        AgencyView agencyView = new AgencyView(agencyService, agencyDao);
+
+
 
         int choice;
         LocalDateTime dateNow;
@@ -51,6 +61,7 @@ public class Main {
                     "24 - Read All Mission Employee\n" +
                     "25 - Search account by number operation\n" +
                     "26 - Mission Employee\n" +
+                    "27 - Add Agency\n" +
 
                     "0 - exit.\n\n" +
                     "==> ");
@@ -60,22 +71,22 @@ public class Main {
             switch (choice){
                 case 1 :
                     System.out.println("Add Employee");
-                    empc.addEmployee();
+                    EmployeeService.createEmployee();
                     break;
 
                 case 2 :
                     System.out.println("read Employees");
-                    empc.AllEmployee();
+                    EmployeeService.getAllEmployees();
                     break;
 
                 case 3 :
                     System.out.println("Update Employee");
-                    empc.updateEmployee();
+                    EmployeeService.updateEmployee();
                     break;
 
                 case 4 :
                     System.out.println("****************** delete Employee");
-                    empc.deleteEmployee();
+                    EmployeeService.deleteEmployee();
                     break;
 
                 case 5 :
@@ -216,6 +227,30 @@ public class Main {
                 case 26 :
                     System.out.println("***************** Mission Statistic ");
                     assignmentsController.StatisticMission();
+                    break;
+                case 27 :
+                    System.out.println("***************** Add Agency ");
+                    agencyView.createAgency();
+                    break;
+                case 29 :
+                    System.out.println("***************** Read All Agencys ");
+                    agencyView.getAllAgencies();
+                    break;
+                case 30 :
+                    System.out.println("***************** Get Agency ");
+                    agencyView.getAgencyByID();
+                    break;
+                case 31 :
+                    System.out.println("***************** Delete Agency ");
+                    agencyView.deleteAgencyByID();
+                    break;
+                case 32 :
+                    System.out.println("***************** Update Agency ");
+                    agencyView.updateAgency();
+                    break;
+                case 28 :
+                    System.out.println("***************** Get Agency By Employee ");
+                    //agencyView.createAgency();
                     break;
 
 

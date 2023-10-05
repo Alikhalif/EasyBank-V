@@ -1,65 +1,51 @@
 package com.alibaba.entities;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.List;
 
-public class Employee extends Person {
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Employee extends Person{
     private int matricule;
-    private LocalDate dateOfRecruitment;
-    private List<Mission> missions;
+
+    private LocalDate recruitmentDate;
+
+    private String email;
+
     private List<Operation> operations;
+
+    private List<Mission> missions;
+
     private List<Account> accounts;
 
-    public Employee(String firstName, String lastName, LocalDate dateOfBirth, String email, String phoneNumber, String address, int matricule, LocalDate dateOfRecruitment, List<Mission> missions, List<Operation> operations, List<Account> accounts) {
-        super(firstName, lastName, dateOfBirth, email, phoneNumber, address);
+    private List<Client> clients;
+
+    private Agency agency;
+
+    public Employee(String lastName, String firstName, LocalDate birthDate, String phone, String address,
+                    int matricule, LocalDate recruitmentDate, String email,
+                    List<Operation> operations, List<Mission> missions, List<Account> accounts, List<Client> clients, Agency agency) {
+        super(lastName, firstName, birthDate, email, phone, address);
         this.matricule = matricule;
-        this.dateOfRecruitment = dateOfRecruitment;
-        this.missions = missions;
+        this.recruitmentDate = recruitmentDate;
+        this.email = email;
         this.operations = operations;
-        this.accounts = accounts;
-    }
-
-    public Employee() {
-
-    }
-
-    public int getMatricule() {
-        return matricule;
-    }
-
-    public void setMatricule(int matricule) {
-        this.matricule = matricule;
-    }
-
-    public LocalDate getDateOfRecruitment() {
-        return dateOfRecruitment;
-    }
-
-    public void setDateOfRecruitment(LocalDate dateOfRecruitment) {
-        this.dateOfRecruitment = dateOfRecruitment;
-    }
-
-    public List<Mission> getMissions() {
-        return missions;
-    }
-
-    public void setMissions(List<Mission> missions) {
         this.missions = missions;
-    }
-
-    public List<Operation> getOperations() {
-        return operations;
-    }
-
-    public void setOperations(List<Operation> operations) {
-        this.operations = operations;
-    }
-
-    public List<Account> getAccounts() {
-        return accounts;
-    }
-
-    public void setAccounts(List<Account> accounts) {
         this.accounts = accounts;
+        this.clients = clients;
+        this.agency = agency;
+    }
+
+    public Employee(String lastName, String firstName, LocalDate birthDate, String phone, String address,
+                    LocalDate recruitmentDate, String email, Agency agency) {
+        super(lastName, firstName, birthDate, email, phone, address);
+        this.recruitmentDate = recruitmentDate;
+        this.email = email;
+        this.agency = agency;
     }
 }
