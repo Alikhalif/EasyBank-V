@@ -23,5 +23,12 @@ public class Simulation {
 
     private Employee employee;
 
+
+    public Simulation(Double borrowed_capital, Integer monthly_payment_num, Client client) {
+        this.borrowed_capital = borrowed_capital;
+        this.monthly_payment_num = monthly_payment_num;
+        this.client = client;
+    }
+
 }
 

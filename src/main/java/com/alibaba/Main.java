@@ -9,7 +9,7 @@ import java.util.Scanner;
 public class Main {
     public static void main(String[] args){
         EmployeeService empc = new EmployeeService();
-        ClientController cltc = new ClientController();
+        //ClientController cltc = new ClientController();
         AccountController accc = new AccountController();
         OperationController opc = new OperationController();
         MissionController missc = new MissionController();
@@ -17,8 +17,6 @@ public class Main {
 
         AgencyDaoImpl agencyDao = new AgencyDaoImpl();
         AgencyService agencyService = new AgencyService(agencyDao);
-
-        // Create an instance of AgencyView with the appropriate constructor
         AgencyView agencyView = new AgencyView(agencyService, agencyDao);
 
 
@@ -92,34 +90,34 @@ public class Main {
                 case 5 :
                     dateNow = LocalDateTime.now();
                     System.out.println("****************** Add Client");
-                    cltc.addClient();
+                    ClientService.createClient();
                     assignmentsController.addMissionOpmloyee(dateNow);
                     break;
 
                 case 6 :
                     dateNow = LocalDateTime.now();
                     System.out.println("****************** Read All Clients");
-                    cltc.getAllClient();
+                    ClientService.getAllClients();
                     assignmentsController.addMissionOpmloyee(dateNow);
                     break;
 
                 case 7 :
                     dateNow = LocalDateTime.now();
                     System.out.println("****************** delete Client");
-                    cltc.deleteClient();
+                    ClientService.deleteClient();
                     break;
 
                 case 8 :
                     dateNow = LocalDateTime.now();
                     System.out.println("****************** update Client");
-                    cltc.updateEmployee();
+                    ClientService.updateClient();
                     assignmentsController.addMissionOpmloyee(dateNow);
                     break;
 
                 case 9 :
                     dateNow = LocalDateTime.now();
                     System.out.println("****************** Search client by code");
-                    cltc.getClientByCode();
+                    ClientService.getClientByCode();
                     assignmentsController.addMissionOpmloyee(dateNow);
                     break;
 

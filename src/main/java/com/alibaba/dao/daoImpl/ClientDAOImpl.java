@@ -4,134 +4,192 @@ import com.alibaba.connexion.DB;
 import com.alibaba.dao.ClientDAO;
 import com.alibaba.entities.Client;
 import com.alibaba.entities.Employee;
+import com.alibaba.exception.ClientException;
 
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class ClientDAOImpl implements ClientDAO {
-    private Connection connection = DB.getConnection();
-    Client client = new Client();
+    private Connection conn;
 
-    @Override
-    public void addClient(Client client) {
-        try {
-            String SQL = "INSERT INTO clients (firstname, lastname, birthDate, email, phone, address) VALUES (?, ?, ?, ?, ?, ?)";
+    public ClientDAOImpl() {
+        conn = DB.getConnection();
+    }
 
-            PreparedStatement pstmt = connection.prepareStatement(SQL);
-            pstmt.setString(1, client.getFirstName());
-            pstmt.setString(2, client.getLastName());
-            pstmt.setDate(3, java.sql.Date.valueOf(client.getDateOfBirth()));
-
-            pstmt.setString(4, client.getEmail());
-            pstmt.setString(5, client.getPhoneNumber());
-            pstmt.setString(6, client.getAddress());
-
-            pstmt.executeUpdate();
-
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+    public ClientDAOImpl(Connection connection) {
+        conn = connection;
     }
 
     @Override
-    public Client getClientByCode(int code) {
-        try{
-            String sql = "SELECT * FROM clients WHERE code = ?";
-            PreparedStatement preparedStatement = connection.prepareStatement(sql);
-            preparedStatement.setInt(1,code);
-            ResultSet resultSet = preparedStatement.executeQuery();
+    public Optional<Client> create(Client client) {
+        String insertSQL = "INSERT INTO clients (firstName, lastName, birthDate, phone, address, employeeMatricule) " +
+                "VALUES (?, ?, ?, ?, ?, ?) RETURNING code";
+        try (PreparedStatement preparedStatement = conn.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS)) {
+            preparedStatement.setString(1, client.getFirstName());
+            preparedStatement.setString(2, client.getLastName());
+            preparedStatement.setDate(3, java.sql.Date.valueOf(client.getDateOfBirth()));
+            preparedStatement.setString(4, client.getPhoneNumber());
+            preparedStatement.setString(5, client.getAddress());
+            preparedStatement.setInt(6, client.getEmployee().getMatricule());
 
-            if (resultSet.next()) {
-                int code1 = resultSet.getInt("code");
-                String firstName = resultSet.getString("firstName");
-                String lastName = resultSet.getString("lastName");
-                LocalDate birthDate = resultSet.getDate("birthDate").toLocalDate();
-                String email = resultSet.getString("email");
-                String phoneNumber = resultSet.getString("phone");
-                String address = resultSet.getString("address");
+            int affectedRows = preparedStatement.executeUpdate();
 
-                // Create and return an Employee object
-                return new Client(firstName, lastName, birthDate, email, phoneNumber, address, code1, null);
+            if (affectedRows == 0) {
+                throw new ClientException("Creating client failed, no rows affected.");
             }
-        }catch (SQLException e){
+
+            try (ResultSet generatedKeys = preparedStatement.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    int code = generatedKeys.getInt(1);
+                    client.setCode(code);
+                } else {
+                    throw new ClientException("Creating client failed, no ID obtained.");
+                }
+            }
+
+            return Optional.of(client);
+        } catch (SQLException | ClientException e) {
             e.printStackTrace();
+            return Optional.empty();
         }
-        return null;
+    }
+
+
+    @Override
+    public Optional<Client> update(Integer code, Client client) {
+        String updateSQL = "UPDATE clients " +
+                "SET firstName = ?, lastName = ?, birthDate = ?, phone = ?, address = ? " +
+                "WHERE code = ?";
+
+        try (PreparedStatement preparedStatement = conn.prepareStatement(updateSQL)) {
+            preparedStatement.setString(1, client.getFirstName());
+            preparedStatement.setString(2, client.getLastName());
+            preparedStatement.setDate(3, java.sql.Date.valueOf(client.getDateOfBirth()));
+            preparedStatement.setString(4, client.getPhoneNumber());
+            preparedStatement.setString(5, client.getAddress());
+            preparedStatement.setInt(6, code);
+
+            int affectedRows = preparedStatement.executeUpdate();
+
+            if (affectedRows == 0) {
+                throw new ClientException("Updating client failed, no rows affected.");
+            }
+
+            return Optional.of(client);
+        } catch (SQLException | ClientException e) {
+            e.printStackTrace();
+            return Optional.empty();
+        }
     }
 
     @Override
-    public List<Client> getAllClients() {
+    public boolean delete(Integer code) {
+        String deleteSQL = "DELETE FROM clients WHERE code = ?";
+
+        try (PreparedStatement preparedStatement = conn.prepareStatement(deleteSQL)) {
+            preparedStatement.setInt(1, code);
+
+            int affectedRows = preparedStatement.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    @Override
+    public Optional<Client> findByID(Integer code) {
+        String selectSQL = "SELECT * FROM clients WHERE code = ?";
+
+        try (PreparedStatement preparedStatement = conn.prepareStatement(selectSQL)) {
+            preparedStatement.setInt(1, code);
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    Client client = new Client();
+                    client.setCode(resultSet.getInt("code"));
+                    client.setFirstName(resultSet.getString("firstName"));
+                    client.setLastName(resultSet.getString("lastName"));
+                    client.setDateOfBirth(resultSet.getDate("birthDate").toLocalDate());
+                    client.setPhoneNumber(resultSet.getString("phone"));
+                    client.setAddress(resultSet.getString("address"));
+//                    client.set_employee(new EmployeeDaoImpl().findByID(resultSet.getInt("employeematricule")).get());
+
+                    return Optional.of(client);
+                } else {
+                    return Optional.empty();
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public List<Client> getAll() {
         List<Client> clients = new ArrayList<>();
-        try{
-            String sql = "SELECT * FROM clients";
-            Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery(sql);
-//            firstName, lastName, birthDate, email, phone, address
-            while (resultSet.next()){
+        String selectAllSQL = "SELECT * FROM clients";
+
+        try (Statement statement = conn.createStatement();
+             ResultSet resultSet = statement.executeQuery(selectAllSQL)) {
+
+            while (resultSet.next()) {
                 Client client = new Client();
                 client.setCode(resultSet.getInt("code"));
                 client.setFirstName(resultSet.getString("firstName"));
                 client.setLastName(resultSet.getString("lastName"));
-                Date birthDate = resultSet.getDate("birthDate");
-                if (birthDate != null) {
-                    client.setDateOfBirth(birthDate.toLocalDate());
-                }
-                client.setEmail(resultSet.getString("email"));
+                client.setDateOfBirth(resultSet.getDate("birthDate").toLocalDate());
                 client.setPhoneNumber(resultSet.getString("phone"));
                 client.setAddress(resultSet.getString("address"));
+
                 clients.add(client);
             }
-            return clients;
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    @Override
-    public Boolean updateClient(Client client) {
-        try {
-            String sql = "UPDATE clients SET firstName=?, lastName=?, birthDate=?, email=?, phone=?, address=? WHERE code = ?";
-            PreparedStatement preparedStatement = connection.prepareStatement(sql);
-
-            preparedStatement.setString(1, client.getFirstName());
-            preparedStatement.setString(2, client.getLastName());
-            preparedStatement.setDate(3, java.sql.Date.valueOf(client.getDateOfBirth()));
-            preparedStatement.setString(4, client.getEmail());
-            preparedStatement.setString(5, client.getPhoneNumber());
-            preparedStatement.setString(6, client.getAddress());
-            preparedStatement.setInt(7, client.getCode());
-            preparedStatement.executeUpdate();
-
-            int affectedRows = preparedStatement.executeUpdate();
-            return affectedRows > 0;
 
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
         }
+
+        return clients;
     }
 
     @Override
-    public Boolean deleteClient(int code) {
-        try {
-            String sql = "DELETE FROM clients WHERE code = ?";
-            PreparedStatement preparedStatement = connection.prepareStatement(sql);
-            preparedStatement.setInt(1, code);
-            int affectedRows = preparedStatement.executeUpdate();
+    public List<Client> findByAttribute(String searchValue) throws ClientException {
+        List<Client> clients = new ArrayList<>();
 
-            System.out.println("Number of affected rows: " + affectedRows);
+        String selectByAttributeSQL = "SELECT * FROM clients WHERE " +
+                "firstName LIKE ? OR " +
+                "lastName LIKE ? OR " +
+                "birthDate::TEXT LIKE ? OR " +
+                "phone LIKE ? OR " +
+                "address LIKE ?";
 
-            if(affectedRows > 0){
-                return true;
-            }else {
-                return false;
+        try (PreparedStatement preparedStatement = conn.prepareStatement(selectByAttributeSQL)) {
+            String wildcardSearchValue = "%" + searchValue + "%";
+            for (int i = 1; i <= 5; i++) {
+                preparedStatement.setString(i, wildcardSearchValue);
+            }
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    Client client = new Client();
+                    client.setCode(resultSet.getInt("code"));
+                    client.setFirstName(resultSet.getString("firstName"));
+                    client.setLastName(resultSet.getString("lastName"));
+                    client.setDateOfBirth(resultSet.getDate("birthDate").toLocalDate());
+                    client.setPhoneNumber(resultSet.getString("phone"));
+                    client.setAddress(resultSet.getString("address"));
+
+                    clients.add(client);
+                }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
+            throw new ClientException("Error searching for clients by attribute.");
         }
+
+        return clients;
     }
 }

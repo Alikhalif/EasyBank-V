@@ -1,44 +1,36 @@
 package com.alibaba.entities;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDate;
 import java.util.List;
 
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class Client extends Person{
     private int code;
-    private List<Account> accounts;
 
-    public Client(String firstName, String lastName, LocalDate dateOfBirth, String email, String phoneNumber, String address, int code, List<Account> accounts) {
-        super(firstName, lastName, dateOfBirth, email, phoneNumber, address);
+    private List<Account> account;
+
+    private Employee employee;
+
+    public Client(String lastName, String firstName, LocalDate birthDate, String email, String phone, String address, int code, List<Account> accounts, Employee employee) {
+        super(lastName, firstName, birthDate, email, phone, address);
         this.code = code;
-        this.accounts = accounts;
+        this.account = accounts;
+        this.employee = employee;
     }
 
-    public Client(){
-
+    public Client(String lastName, String firstName, LocalDate birthDate, String email, String phone, String address) {
+        super(lastName, firstName, birthDate, email, phone, address);
     }
 
-    public int getCode() {
-        return code;
+    public Client(String lastName, String firstName, LocalDate birthDate,String email, String phone, String address, Employee employee) {
+        super(lastName, firstName, birthDate, email, phone, address);
+        this.employee = employee;
     }
 
-    public void setCode(int code) {
-        this.code = code;
-    }
-
-    public List<Account> getAccounts() {
-        return accounts;
-    }
-
-    public void setAccounts(List<Account> accounts) {
-        this.accounts = accounts;
-    }
-
-
-    @Override
-    public String toString() {
-        return "Client{" +
-                "code=" + code +
-                ", accounts=" + accounts +
-                '}';
-    }
 }

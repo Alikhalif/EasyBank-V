@@ -16,5 +16,12 @@ public class Transaction {
     private Account destinationAccount;
     private double amount;
     private LocalDateTime transactionTime;
+    private Operation operation;
+
+    public Transaction(Integer id_Transaction, Account sourceAccount, Account destinationAccount, double amount, LocalDateTime transactionTime, Operation operation){
+        super();
+
+
+    }
 
 }

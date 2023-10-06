@@ -19,10 +19,10 @@ public class AccountController {
     AccountDAOImpl seracc = new AccountDAOImpl();
 
     //EmployeeService employeeController = new EmployeeService();
-    ClientController clientController = new ClientController();
+    //ClientController clientController = new ClientController();
 
     public void addAccount(){
-        clientController.getAllClient();
+        ClientService.getAllClients();
         Scanner sc = new Scanner(System.in);
         System.out.println("Enter Code Client");
         int codeC = sc.nextInt();
